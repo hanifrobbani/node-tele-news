@@ -9,6 +9,7 @@ bot.botStart()
 bot.botReplySticker()
 bot.botSendEarthquake(process.env.BMKG_API)
 bot.botSendRandomNews(process.env.RANDOM_NEWS_API)
+bot.botSendWeather(process.env.WEATHER_API)
 bot.launch(); // start  polling from telegraf
 console.log("bot running");
 

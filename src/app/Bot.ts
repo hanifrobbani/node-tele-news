@@ -1,5 +1,6 @@
 import { Telegraf, Context } from "telegraf";
-
+import helperText from "../libs/helper.ts";
+import commands from "../libs/commands.ts";
 class Bot extends Telegraf<Context> {
     constructor(token: string | undefined) {
         if (!token) {
@@ -9,7 +10,7 @@ class Bot extends Telegraf<Context> {
     }
 
     botStart() {
-        this.start((ctx) => ctx.reply('Welcome'))
+        this.start((ctx) => ctx.reply(helperText, { parse_mode: "Markdown" }))
         console.log("command running");
     }
 
@@ -34,7 +35,7 @@ class Bot extends Telegraf<Context> {
     }
 
     botSendEarthquake(api: string | undefined) {
-        this.command("quake", async (ctx) => {
+        this.command(commands.quake, async (ctx) => {
             try {
                 let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
                 if (api) {
@@ -43,14 +44,15 @@ class Bot extends Telegraf<Context> {
                     const gempa = data.Infogempa?.gempa;
 
                     if (!gempa) {
-                        return ctx.reply("❌ Tidak ada data gempa dari BMKG");
+                        return ctx.reply("❌ There is no earthquake data from BMKG at this time");
                     }
                     await ctx.deleteMessage(loadingMessage.message_id);
                     const sendData = this.formatGempaMessage(gempa);
                     const shakemapUrl = `https://data.bmkg.go.id/DataMKG/TEWS/${gempa.Shakemap}`;
 
                     return ctx.replyWithPhoto({ url: shakemapUrl }, { caption: sendData, parse_mode: "Markdown", reply_parameters: { message_id: ctx.message.message_id } });
-
+                }else{
+                    return ctx.reply(`API Not Available`)
                 }
 
             } catch (e) {
@@ -61,7 +63,7 @@ class Bot extends Telegraf<Context> {
     }
 
     botSendRandomNews(api: string | undefined) {
-        this.command("news", async (ctx) => {
+        this.command(commands.quake, async (ctx) => {
             try {
                 let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
                 if (api) {
@@ -80,7 +82,27 @@ class Bot extends Telegraf<Context> {
                     }
 
                     await ctx.deleteMessage(loadingMessage.message_id);
+                } else {
+                    return ctx.reply(`API Not Available`)
+                }
 
+            } catch (e) {
+                console.log(e);
+                return ctx.reply(`Unexpected error: ${e}`)
+            }
+        })
+    }
+
+    botSendWeather(api: string | undefined) {
+        this.command(commands.weather, async (ctx) => {
+            try {
+                let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
+                if (api) {
+                    const response = await fetch(api)
+                    const data = await response.json()
+                    console.log(data);
+                    await ctx.deleteMessage(loadingMessage.message_id);
+                    return ctx.sendMessage(data, {parse_mode: "Markdown"})
                 }
 
             } catch (e) {
