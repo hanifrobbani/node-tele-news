@@ -7,11 +7,15 @@ class Bot extends Telegraf<Context> {
             throw new Error("BOT_TOKEN is not defined");
         }
         super(token)
+        this.on("message",(ctx) => {
+            if (!Object.values(commands).some(cmd => ctx?.text?.includes(cmd))) {
+                ctx.reply("Command not found")
+            }
+        })
     }
 
     botStart() {
         this.start((ctx) => ctx.reply(helperText, { parse_mode: "Markdown" }))
-        console.log("command running");
     }
 
     botReplySticker() {
@@ -51,7 +55,7 @@ class Bot extends Telegraf<Context> {
                     const shakemapUrl = `https://data.bmkg.go.id/DataMKG/TEWS/${gempa.Shakemap}`;
 
                     return ctx.replyWithPhoto({ url: shakemapUrl }, { caption: sendData, parse_mode: "Markdown", reply_parameters: { message_id: ctx.message.message_id } });
-                }else{
+                } else {
                     return ctx.reply(`API Not Available`)
                 }
 
@@ -99,10 +103,34 @@ class Bot extends Telegraf<Context> {
                 let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
                 if (api) {
                     const response = await fetch(api)
-                    const data = await response.json()
-                    console.log(data);
+                    const weather = await response.json()
+                    const { data } = weather
+                    const location = data[0].lokasi.provinsi
+
                     await ctx.deleteMessage(loadingMessage.message_id);
-                    return ctx.sendMessage(data, {parse_mode: "Markdown"})
+                    for (let i = 0; i < data[0].cuaca.length; i++) {
+                        const lastIndex = data[0].cuaca[i].length - 1;
+                        const cuaca = data[0].cuaca[i][lastIndex];
+
+                        // date format
+                        const date = new Date(cuaca.local_datetime);
+                        const formattedDate = date.toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric"
+                        });
+
+                        await ctx.sendMessage(
+                            `*Weather ${location} (latest update)* \n\n` +
+                            `*⌛ Date:* ${formattedDate}\n` +
+                            `*🌦️ Weather condition:* ${cuaca.weather_desc}\n` +
+                            `*🌡️ temperature:* ${cuaca.t}°C\n` +
+                            `*💧 Humidity:* ${cuaca.hu}%\n` +
+                            `*💨 Wind speed:* ${cuaca.ws} (m/s) \n\n` +
+                            `*Source: BMKG*`,
+                            { parse_mode: "Markdown" }
+                        );
+                    }
                 }
 
             } catch (e) {
@@ -122,7 +150,7 @@ ${gempa.Wilayah} ${gempa.Potensi}
 *🌐 Koordinat:* ${gempa.Coordinates}
 
 *Source: BMKG*`;
-}
+    }
 }
 
 export default Bot
