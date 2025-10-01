@@ -1,5 +1,5 @@
 import { Telegraf, Context } from "telegraf";
-import helperText from "../libs/helper.ts";
+import helpers from "../libs/helper.ts";
 import commands from "../libs/commands.ts";
 class Bot extends Telegraf<Context> {
     constructor(token: string | undefined) {
@@ -7,15 +7,10 @@ class Bot extends Telegraf<Context> {
             throw new Error("BOT_TOKEN is not defined");
         }
         super(token)
-        this.on("message",(ctx) => {
-            if (!Object.values(commands).some(cmd => ctx?.text?.includes(cmd))) {
-                ctx.reply("Command not found")
-            }
-        })
     }
 
     botStart() {
-        this.start((ctx) => ctx.reply(helperText, { parse_mode: "Markdown" }))
+        this.start((ctx) => ctx.reply(helpers.helperText, { parse_mode: "Markdown" }))
     }
 
     botReplySticker() {
@@ -67,13 +62,13 @@ class Bot extends Telegraf<Context> {
     }
 
     botSendRandomNews(api: string | undefined) {
-        this.command(commands.quake, async (ctx) => {
+        this.command(commands.news, async (ctx) => {
             try {
                 let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
                 if (api) {
                     const response = await fetch(api)
                     const data = await response.json()
-
+                    
                     for (const news of data.posts.slice(0, 5)) {
                         await ctx.replyWithPhoto(
                             { url: news.image },
@@ -97,22 +92,40 @@ class Bot extends Telegraf<Context> {
         })
     }
 
-    botSendWeather(api: string | undefined) {
+    botSendWeather(apiBase: string | undefined) {
         this.command(commands.weather, async (ctx) => {
             try {
-                let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" })
-                if (api) {
-                    const response = await fetch(api)
-                    const weather = await response.json()
-                    const { data } = weather
-                    const location = data[0].lokasi.provinsi
+                const input = ctx.message.text.split(" ");
+                const locationKey = input[1]?.toLowerCase();
+
+                if (!locationKey) {
+                    return ctx.reply("❌ Please insert the location. Ex: `/weather bekasi`", { parse_mode: "Markdown" });
+                }
+
+                const kodeWilayah = helpers.weatherLocation[locationKey as keyof typeof helpers.weatherLocation];
+
+                if (!kodeWilayah) {
+                    return ctx.reply("⚠️ Location not found Use one of this: \n" +
+                        Object.keys(helpers.weatherLocation).map(l => `- ${l}`).join("\n"),
+                        { parse_mode: "Markdown" }
+                    );
+                }
+
+                let loadingMessage = await ctx.sendMessage("*Loading...*", { parse_mode: "Markdown" });
+
+                if (apiBase) {
+                    const apiUrl = `${apiBase}?adm4=${kodeWilayah}`;
+                    const response = await fetch(apiUrl);
+                    const weather = await response.json();
+                    const { data } = weather;
+                    const location = data[0].lokasi.kotkab;
 
                     await ctx.deleteMessage(loadingMessage.message_id);
+
                     for (let i = 0; i < data[0].cuaca.length; i++) {
                         const lastIndex = data[0].cuaca[i].length - 1;
                         const cuaca = data[0].cuaca[i][lastIndex];
 
-                        // date format
                         const date = new Date(cuaca.local_datetime);
                         const formattedDate = date.toLocaleDateString("en-GB", {
                             day: "2-digit",
@@ -124,7 +137,7 @@ class Bot extends Telegraf<Context> {
                             `*Weather ${location} (latest update)* \n\n` +
                             `*⌛ Date:* ${formattedDate}\n` +
                             `*🌦️ Weather condition:* ${cuaca.weather_desc}\n` +
-                            `*🌡️ temperature:* ${cuaca.t}°C\n` +
+                            `*🌡️ Temperature:* ${cuaca.t}°C\n` +
                             `*💧 Humidity:* ${cuaca.hu}%\n` +
                             `*💨 Wind speed:* ${cuaca.ws} (m/s) \n\n` +
                             `*Source: BMKG*`,
@@ -135,13 +148,13 @@ class Bot extends Telegraf<Context> {
 
             } catch (e) {
                 console.log(e);
-                return ctx.reply(`Unexpected error: ${e}`)
+                return ctx.reply(`Unexpected error: ${e}`);
             }
-        })
+        });
     }
 
-private formatGempaMessage(gempa: any): string {
-return `*${gempa.Tanggal} ${gempa.Jam}*
+    private formatGempaMessage(gempa: any): string {
+        return `*${gempa.Tanggal} ${gempa.Jam}*
 
 ${gempa.Wilayah} ${gempa.Potensi}
 
